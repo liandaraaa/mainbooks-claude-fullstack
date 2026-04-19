@@ -18,7 +18,7 @@ const parseConnection = () => {
 
 module.exports = {
   development: {
-    client: 'postgresql',
+    client: 'pg',
     connection: {
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT || 5432,
@@ -30,14 +30,14 @@ module.exports = {
     seeds: { directory: './src/db/seeds' },
   },
   production: {
-    client: 'postgresql',
+    client: 'pg',
     connection: parseConnection(),
     migrations: { directory: './src/db/migrations' },
     seeds: { directory: './src/db/seeds' },
     pool: { min: 2, max: 10 },
   },
   test: {
-    client: 'postgresql',
+    client: 'pg',
     connection: {
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT || 5432,
