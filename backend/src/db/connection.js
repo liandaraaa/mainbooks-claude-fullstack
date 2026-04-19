@@ -2,11 +2,14 @@ const knex = require('knex');
 
 const getConfig = () => {
   if (process.env.DATABASE_URL) {
+    console.log('Using DATABASE_URL connection');
     return {
       client: 'pg',
       connection: {
         connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false },
+        ssl: process.env.DATABASE_URL.includes('railway.internal') 
+          ? false 
+          : { rejectUnauthorized: false },
       },
       pool: { min: 2, max: 10 },
     };
