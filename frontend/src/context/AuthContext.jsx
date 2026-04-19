@@ -52,16 +52,17 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  // Refresh user from server (e.g. after subscribe)
-  const refreshUser = useCallback(async () => {
-    try {
-      const { data } = await authApi.me();
-      setUser(data.user);
-      localStorage.setItem('mb_user', JSON.stringify(data.user));
-      // Also update token tier_status by re-login isn't feasible without password
-      // We update local state which is sufficient for UI
-    } catch {}
-  }, []);
+const refreshUser = useCallback(async () => {
+  try {
+    const { data } = await authApi.me();
+    const updatedUser = data.user;
+    setUser(null);
+    setTimeout(() => {
+      setUser(updatedUser);
+      localStorage.setItem('mb_user', JSON.stringify(updatedUser));
+    }, 50);
+  } catch {}
+}, []);
 
   const isAdmin = user?.role === 'admin';
   const isPremium = user?.tier_status === 'premium' && user?.sub_end_date && new Date(user.sub_end_date) > new Date();

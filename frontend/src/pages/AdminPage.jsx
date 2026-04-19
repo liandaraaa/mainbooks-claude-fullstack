@@ -20,19 +20,111 @@ function BookFormModal({ book, onClose, onSaved }) {
     pages: book.pages || '',
     language: book.language || 'id',
     is_sub_eligible: book.is_sub_eligible,
-    otp_price: book.otp_price || '',
-  } : EMPTY_FORM);
+    otp_price: book.otp_price ? Number(book.otp_price).toLocaleString('id-ID') : '',
+  } : {
+    title: '', author: '', description: '', cover_url: '', genre: '',
+    pages: '', language: 'id', is_sub_eligible: true, otp_price: '',
+  });
+
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
+  // ── Validasi ──────────────────────────────────────────
+  const validate = () => {
+    const e = {};
+
+    if (!form.title.trim())
+      e.title = 'Judul wajib diisi.';
+    else if (form.title.trim().length < 3)
+      e.title = 'Judul minimal 3 karakter.';
+
+    if (!form.author.trim())
+      e.author = 'Pengarang wajib diisi.';
+    else if (form.author.trim().length < 3)
+      e.author = 'Nama pengarang minimal 3 karakter.';
+
+    if (form.description && form.description.length > 500)
+      e.description = 'Deskripsi maksimal 500 karakter.';
+
+    if (form.cover_url && form.cover_url.trim()) {
+      try { new URL(form.cover_url); }
+      catch { e.cover_url = 'URL cover tidak valid. Harus diawali https://'; }
+    }
+
+    if (!form.genre)
+      e.genre = 'Genre wajib dipilih.';
+
+    if (form.pages) {
+      const p = Number(form.pages);
+      if (isNaN(p) || p < 1)
+        e.pages = 'Jumlah halaman harus lebih dari 0.';
+      else if (p > 9999)
+        e.pages = 'Jumlah halaman maksimal 9999.';
+    }
+
+    // Validasi OTP price — strip format Rupiah dulu
+    if (form.otp_price) {
+      const raw = form.otp_price.toString().replace(/\./g, '').replace(/,/g, '');
+      const price = Number(raw);
+      if (isNaN(price) || price < 1000)
+        e.otp_price = 'Harga minimal Rp 1.000.';
+      else if (price > 999999999)
+        e.otp_price = 'Harga terlalu besar.';
+    }
+
+    // Kalau is_sub_eligible false dan tidak ada otp_price → tidak bisa diakses siapapun
+    if (!form.is_sub_eligible && !form.otp_price) {
+      e.otp_price = 'Buku non-katalog wajib punya harga OTP agar bisa diakses.';
+    }
+
+    return e;
+  };
+
+  // ── Format Rupiah saat input ──────────────────────────
+  const handleOtpPriceChange = (e) => {
+    // Hapus semua karakter non-digit
+    const raw = e.target.value.replace(/\D/g, '');
+    if (!raw) { setForm({ ...form, otp_price: '' }); return; }
+
+    // Format dengan titik ribuan
+    const formatted = Number(raw).toLocaleString('id-ID');
+    setForm({ ...form, otp_price: formatted });
+
+    // Clear error saat user mulai ketik
+    if (errors.otp_price) setErrors({ ...errors, otp_price: null });
+  };
+
+  // ── Clear error saat field diubah ─────────────────────
+  const handleChange = (field, value) => {
+    setForm({ ...form, [field]: value });
+    if (errors[field]) setErrors({ ...errors, [field]: null });
+  };
+
+  // ── Submit ────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
     setSaving(true);
     try {
+      // Strip format Rupiah sebelum kirim ke API
+      const rawPrice = form.otp_price
+        ? Number(form.otp_price.toString().replace(/\./g, '').replace(/,/g, ''))
+        : null;
+
       const payload = {
         ...form,
+        title: form.title.trim(),
+        author: form.author.trim(),
+        description: form.description.trim(),
         pages: form.pages ? Number(form.pages) : null,
-        otp_price: form.otp_price ? Number(form.otp_price) : null,
+        otp_price: rawPrice,
       };
+
       if (book?.id) {
         await booksApi.update(book.id, payload);
         addToast('Buku berhasil diperbarui.', 'success');
@@ -48,6 +140,14 @@ function BookFormModal({ book, onClose, onSaved }) {
     }
   };
 
+  // ── Helper: field error UI ────────────────────────────
+  const FieldError = ({ field }) => errors[field]
+    ? <p className="text-red-600 text-xs mt-1 font-body">{errors[field]}</p>
+    : null;
+
+  const inputCls = (field) =>
+    `input-field ${errors[field] ? 'border-red-400 focus:border-red-500' : ''}`;
+
   return (
     <div className="fixed inset-0 bg-ink-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -58,67 +158,171 @@ function BookFormModal({ book, onClose, onSaved }) {
           <button onClick={onClose} className="text-ink-400 hover:text-ink-800 text-2xl leading-none">×</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
+          {/* Judul */}
+          <div>
+            <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">
+              Judul <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              className={inputCls('title')}
+              value={form.title}
+              onChange={(e) => handleChange('title', e.target.value)}
+              placeholder="Judul buku"
+            />
+            <FieldError field="title" />
+          </div>
+
+          {/* Pengarang */}
+          <div>
+            <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">
+              Pengarang <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              className={inputCls('author')}
+              value={form.author}
+              onChange={(e) => handleChange('author', e.target.value)}
+              placeholder="Nama pengarang"
+            />
+            <FieldError field="author" />
+          </div>
+
+          {/* Genre & Halaman */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">Judul *</label>
-              <input type="text" className="input-field" value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })} required />
-            </div>
-            <div className="col-span-2">
-              <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">Pengarang *</label>
-              <input type="text" className="input-field" value={form.author}
-                onChange={(e) => setForm({ ...form, author: e.target.value })} required />
-            </div>
             <div>
-              <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">Genre</label>
-              <select className="input-field" value={form.genre}
-                onChange={(e) => setForm({ ...form, genre: e.target.value })}>
+              <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">
+                Genre <span className="text-red-500">*</span>
+              </label>
+              <select
+                className={inputCls('genre')}
+                value={form.genre}
+                onChange={(e) => handleChange('genre', e.target.value)}
+              >
                 <option value="">Pilih genre</option>
                 {['Dongeng', 'Petualangan', 'Misteri', 'Fantasi', 'Edukasi'].map((g) => (
                   <option key={g} value={g}>{g}</option>
                 ))}
               </select>
+              <FieldError field="genre" />
             </div>
             <div>
               <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">Jumlah Halaman</label>
-              <input type="number" className="input-field" value={form.pages}
-                onChange={(e) => setForm({ ...form, pages: e.target.value })} min="1" />
-            </div>
-            <div className="col-span-2">
-              <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">URL Cover</label>
-              <input type="url" className="input-field" placeholder="https://..." value={form.cover_url}
-                onChange={(e) => setForm({ ...form, cover_url: e.target.value })} />
-            </div>
-            <div className="col-span-2">
-              <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">Deskripsi</label>
-              <textarea className="input-field" rows={3} value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })} />
-            </div>
-            <div>
-              <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">Model Akses</label>
-              <div className="space-y-2 mt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form.is_sub_eligible}
-                    onChange={(e) => setForm({ ...form, is_sub_eligible: e.target.checked })}
-                    className="w-4 h-4 accent-ink-800" />
-                  <span className="font-body text-sm text-ink-700">Tersedia via Langganan</span>
-                </label>
-              </div>
-            </div>
-            <div>
-              <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">Harga OTP (Rp)</label>
-              <input type="number" className="input-field" placeholder="Kosongkan jika tidak dijual satuan"
-                value={form.otp_price}
-                onChange={(e) => setForm({ ...form, otp_price: e.target.value })} min="0" />
+              <input
+                type="number"
+                className={inputCls('pages')}
+                value={form.pages}
+                onChange={(e) => handleChange('pages', e.target.value)}
+                placeholder="cth: 120"
+                min="1"
+                max="9999"
+              />
+              <FieldError field="pages" />
             </div>
           </div>
 
+          {/* Cover URL */}
+          <div>
+            <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">URL Cover</label>
+            <input
+              type="url"
+              className={inputCls('cover_url')}
+              placeholder="https://..."
+              value={form.cover_url}
+              onChange={(e) => handleChange('cover_url', e.target.value)}
+            />
+            <FieldError field="cover_url" />
+            {/* Preview cover */}
+            {form.cover_url && !errors.cover_url && (
+              <img
+                src={form.cover_url}
+                alt="preview"
+                className="mt-2 h-24 w-16 object-cover rounded shadow border border-ink-100"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            )}
+          </div>
+
+          {/* Deskripsi */}
+          <div>
+            <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">
+              Deskripsi
+              <span className="text-ink-400 font-normal ml-1">({form.description.length}/500)</span>
+            </label>
+            <textarea
+              className={inputCls('description')}
+              rows={3}
+              value={form.description}
+              onChange={(e) => handleChange('description', e.target.value)}
+              placeholder="Deskripsi singkat buku..."
+            />
+            <FieldError field="description" />
+          </div>
+
+          {/* Akses Model */}
+          <div className="bg-cream-100 rounded-lg p-4 border border-ink-100">
+            <label className="block font-body text-sm font-medium text-ink-700 mb-3">Model Akses</label>
+            <label className="flex items-center gap-2 cursor-pointer mb-2">
+              <input
+                type="checkbox"
+                checked={form.is_sub_eligible}
+                onChange={(e) => handleChange('is_sub_eligible', e.target.checked)}
+                className="w-4 h-4 accent-ink-800"
+              />
+              <span className="font-body text-sm text-ink-700">Tersedia via Langganan (katalog)</span>
+            </label>
+            <p className="font-body text-xs text-ink-400 ml-6">
+              {form.is_sub_eligible
+                ? 'Buku ini bisa diakses oleh semua member Premium.'
+                : 'Buku ini hanya bisa diakses melalui pembelian satuan.'}
+            </p>
+          </div>
+
+          {/* Harga OTP */}
+          <div>
+            <label className="block font-body text-sm font-medium text-ink-700 mb-1.5">
+              Harga OTP (Beli Satuan)
+              {!form.is_sub_eligible && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-body text-sm text-ink-500 font-medium">
+                Rp
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                className={`${inputCls('otp_price')} pl-10`}
+                placeholder="0"
+                value={form.otp_price}
+                onChange={handleOtpPriceChange}
+              />
+            </div>
+            <FieldError field="otp_price" />
+            {form.otp_price && !errors.otp_price && (
+              <p className="text-ink-400 text-xs mt-1 font-mono">
+                = Rp {form.otp_price}
+              </p>
+            )}
+            {!form.is_sub_eligible && !form.otp_price && (
+              <p className="text-amber-600 text-xs mt-1 font-body">
+                ⚠ Wajib diisi karena buku ini tidak masuk katalog langganan.
+              </p>
+            )}
+          </div>
+
+          {/* Actions */}
           <div className="flex gap-3 pt-4 border-t border-ink-100">
-            <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-primary disabled:opacity-50"
+            >
               {saving ? 'Menyimpan...' : book ? 'Simpan Perubahan' : 'Tambah Buku'}
             </button>
-            <button type="button" onClick={onClose} className="btn-secondary">Batal</button>
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Batal
+            </button>
           </div>
         </form>
       </div>

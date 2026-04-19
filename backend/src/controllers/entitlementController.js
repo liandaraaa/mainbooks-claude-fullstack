@@ -1,4 +1,5 @@
 const db = require('../db/connection');
+const jwt = require('jsonwebtoken');
 
 // Mock payment processor
 const processPayment = async (amount, method) => {
@@ -32,11 +33,18 @@ const subscribe = async (req, res) => {
       updated_at: new Date(),
     });
 
+    const newToken = jwt.sign(
+      { id: user.id, email: user.email, role: user.role, tier_status: 'premium' },
+      process.env.JWT_SECRET || 'mainbooks-secret',
+      { expiresIn: '7d' }
+    );
+
     res.json({
       message: 'Subscription activated successfully',
       tier_status: 'premium',
       sub_end_date: subEndDate,
       transaction_id: payment.transaction_id,
+      token: newToken, // ← tambah ini
     });
   } catch (err) {
     console.error(err);

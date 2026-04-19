@@ -70,19 +70,19 @@ export default function LoginPage() {
           <div className="mb-6 p-4 bg-amber-400/20 border border-amber-400/40 rounded-lg">
             <p className="font-mono text-xs text-ink-700 font-medium mb-2">DEMO AKUN</p>
             <div className="space-y-1">
-              <button onClick={() => fillDemo('admin@mainbooks.id', 'admin123')} className="text-xs font-body text-ink-700 hover:text-ink-900 underline block">
+              <button type="button" onClick={() => fillDemo('admin@mainbooks.id', 'admin123')} className="text-xs font-body text-ink-700 hover:text-ink-900 underline block">
                 Admin → admin@mainbooks.id / admin123
               </button>
-              <button onClick={() => fillDemo('premium@mainbooks.id', 'password123')} className="text-xs font-body text-ink-700 hover:text-ink-900 underline block">
+              <button type="button" onClick={() => fillDemo('premium@mainbooks.id', 'password123')} className="text-xs font-body text-ink-700 hover:text-ink-900 underline block">
                 Premium → premium@mainbooks.id / password123
               </button>
-              <button onClick={() => fillDemo('user@mainbooks.id', 'password123')} className="text-xs font-body text-ink-700 hover:text-ink-900 underline block">
+              <button type="button" onClick={() => fillDemo('user@mainbooks.id', 'password123')} className="text-xs font-body text-ink-700 hover:text-ink-900 underline block">
                 Gratis → user@mainbooks.id / password123
               </button>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 font-body text-sm">
                 {error}

@@ -3,14 +3,17 @@ const db = require('../db/connection');
 // Check if user has access to a book
 const checkAccess = async (userId, bookId, tierStatus, subEndDate) => {
   const book = await db('books').where({ id: bookId }).first();
-  if (!book || !book.is_active) return { hasAccess: false, reason: 'book_not_found' };
+  if (!book) return { hasAccess: false, reason: 'book_not_found' };
 
-  // Check OTP purchase
+  // ← cek OTP dulu sebelum cek is_active
+  // grandfathered access: kalau sudah beli, tetap bisa akses walau delist
   const entitlement = await db('entitlements')
     .where({ user_id: userId, book_id: bookId })
     .first();
-
   if (entitlement) return { hasAccess: true, reason: 'purchased' };
+
+  // ← baru cek is_active untuk non-OTP
+  if (!book.is_active) return { hasAccess: false, reason: 'book_not_found' };
 
   // Check subscription
   if (book.is_sub_eligible && tierStatus === 'premium') {
@@ -25,10 +28,11 @@ const getAllBooks = async (req, res) => {
   try {
     const books = await db('books').where({ is_active: true }).orderBy('created_at', 'desc');
 
-    // If user is authenticated, attach access info
     if (req.user) {
-      const { id: userId, tier_status, sub_end_date } = req.user;
-      const entitlements = await db('entitlements').where({ user_id: userId });
+      const dbUser = await db('users').where({ id: req.user.id }).first();
+      const { tier_status, sub_end_date } = dbUser;
+
+      const entitlements = await db('entitlements').where({ user_id: req.user.id });
       const purchasedIds = new Set(entitlements.map((e) => e.book_id));
 
       const booksWithAccess = books.map((book) => {
@@ -58,16 +62,24 @@ const getAllBooks = async (req, res) => {
 
 const getBookById = async (req, res) => {
   try {
-    const book = await db('books').where({ id: req.params.id, is_active: true }).first();
+    // ← hapus filter is_active
+    const book = await db('books').where({ id: req.params.id }).first();
     if (!book) return res.status(404).json({ error: 'Book not found' });
 
     let hasAccess = false;
     let accessReason = null;
 
     if (req.user) {
-      const result = await checkAccess(req.user.id, book.id, req.user.tier_status, req.user.sub_end_date);
+      const dbUser = await db('users').where({ id: req.user.id }).first();
+      const result = await checkAccess(req.user.id, book.id, dbUser.tier_status, dbUser.sub_end_date);
       hasAccess = result.hasAccess;
       accessReason = result.reason;
+    }
+
+    // ← buku delist + tidak punya akses → 404
+    // ← buku delist + punya OTP → tetap bisa akses (grandfathered)
+    if (!book.is_active && !hasAccess) {
+      return res.status(404).json({ error: 'Book not found' });
     }
 
     res.json({ book: { ...book, hasAccess, accessReason } });

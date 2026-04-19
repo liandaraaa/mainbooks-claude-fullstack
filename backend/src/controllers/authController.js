@@ -39,14 +39,14 @@ const login = async (req, res) => {
   }
 
   try {
-    const user = await db('users').where({ email }).first();
+   const user = await db('users').where({ email }).first();
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Email atau password salah.' });
     }
 
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Email atau password salah.' });
     }
 
     // Check if sub is still valid

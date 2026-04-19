@@ -46,19 +46,29 @@ export default function BookDetailPage() {
   };
 
   const handleSubscribe = async () => {
-    if (!user) { navigate('/login', { state: { from: `/books/${id}` } }); return; }
-    setSubscribing(true);
-    try {
-      await entitlementApi.subscribe();
-      await refreshUser();
-      await loadBook();
-      addToast('Berlangganan berhasil! 🎉', 'success');
-    } catch (err) {
-      addToast(err.response?.data?.error || 'Gagal berlangganan.', 'error');
-    } finally {
-      setSubscribing(false);
+  if (!user) { addToast('Login dulu untuk berlangganan.', 'info'); return; }
+  setSubscribing(true);
+  try {
+    const { data } = await entitlementApi.subscribe();
+    
+    if (data.token) {
+      localStorage.setItem('mb_token', data.token);
     }
-  };
+    localStorage.setItem('mb_user', JSON.stringify({
+      ...user,
+      tier_status: 'premium',
+      sub_end_date: data.sub_end_date,
+    }));
+    
+    await refreshUser();
+    await fetchBooks();
+    addToast('Berlangganan berhasil! Nikmati semua buku. 🎉', 'success');
+  } catch (err) {
+    addToast(err.response?.data?.error || 'Gagal berlangganan.', 'error');
+  } finally {
+    setSubscribing(false);
+  }
+};
 
   if (loading) {
     return (
