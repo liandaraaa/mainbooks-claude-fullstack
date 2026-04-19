@@ -2,6 +2,7 @@
 /backend/dist
 /backend/.env
 /backend/.env.example
+/backend/coverage
 /frontend/node_modules
 /frontend/dist
 /frontend/.env

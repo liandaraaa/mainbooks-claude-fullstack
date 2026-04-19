@@ -92,7 +92,7 @@ describe('AuthController', () => {
       const res = mockRes();
       await login(req, res);
       expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Invalid credentials' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Email atau password salah.' });
     });
 
     it('returns 401 if password does not match', async () => {
